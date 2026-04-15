@@ -1,0 +1,1541 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>Celestia — Tu Mapa Astral</title>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400;1,600&family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet"/>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bulma@0.9.4/css/bulma.min.css"/>
+<script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.9.4/p5.min.js"></script>
+ 
+<style>
+:root{
+  --ink:#0a0f1e;
+  --ink2:#1e2540;
+  --ink3:#3d4666;
+  --muted:#6b7494;
+  --border:#e4e8f5;
+  --surface:#f8f9ff;
+  --white:#ffffff;
+  --violet:#6c47ff;
+  --violet-soft:#ede8ff;
+  --blue:#3b82f6;
+  --teal:#0ea5e9;
+  --emerald:#10b981;
+  --rose:#f43f5e;
+  --amber:#f59e0b;
+  --indigo:#4f46e5;
+  --card-shadow:0 4px 24px rgba(10,15,40,0.07),0 1px 4px rgba(10,15,40,0.05);
+  --card-shadow-hover:0 12px 48px rgba(108,71,255,0.14),0 2px 8px rgba(10,15,40,0.08);
+}
+ 
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+html{scroll-behavior:smooth;}
+ 
+body{
+  font-family:'DM Sans',sans-serif;
+  background:var(--white);
+  color:var(--ink);
+  overflow-x:hidden;
+  line-height:1.6;
+}
+ 
+/* ─── P5 BACKGROUND LAYER ─── */
+#p5-hero-bg{
+  position:absolute;
+  inset:0;
+  z-index:0;
+  pointer-events:none;
+  overflow:hidden;
+}
+#p5-hero-bg canvas{
+  display:block !important;
+  width:100% !important;
+  height:100% !important;
+  opacity:1;
+  mix-blend-mode:normal;
+}
+ 
+/* ─── GRADIENT BG ─── */
+.hero-bg{
+  position:relative;
+  background:#f5f3ff;
+  overflow:hidden;
+  padding:0;
+}
+ 
+.orb{
+  position:absolute;
+  border-radius:50%;
+  filter:blur(80px);
+  opacity:0.55;
+  pointer-events:none;
+}
+.orb-1{width:600px;height:600px;background:radial-gradient(circle,#a78bfa,#7c3aed);top:-180px;left:-120px;animation:float1 12s ease-in-out infinite;}
+.orb-2{width:500px;height:500px;background:radial-gradient(circle,#60a5fa,#3b82f6);top:-100px;right:-100px;animation:float2 15s ease-in-out infinite;}
+.orb-3{width:400px;height:400px;background:radial-gradient(circle,#34d399,#10b981);bottom:-80px;left:30%;animation:float3 18s ease-in-out infinite;}
+.orb-4{width:350px;height:350px;background:radial-gradient(circle,#fb7185,#f43f5e);bottom:-60px;right:10%;animation:float1 20s ease-in-out infinite reverse;}
+ 
+@keyframes float1{0%,100%{transform:translate(0,0) scale(1);}50%{transform:translate(30px,-40px) scale(1.05);}}
+@keyframes float2{0%,100%{transform:translate(0,0) scale(1);}50%{transform:translate(-20px,30px) scale(0.96);}}
+@keyframes float3{0%,100%{transform:translate(0,0) scale(1);}50%{transform:translate(40px,-20px) scale(1.08);}}
+ 
+/* Grain texture overlay */
+.hero-bg::after{
+  content:'';
+  position:absolute;
+  inset:0;
+  background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E");
+  background-repeat:repeat;
+  background-size:128px 128px;
+  pointer-events:none;
+  opacity:0.6;
+  z-index:1;
+}
+ 
+.hero-inner{position:relative;z-index:2;padding:7rem 2rem 5rem;}
+ 
+/* ─── NAV ─── */
+nav{
+  position:fixed;top:0;left:0;right:0;z-index:100;
+  display:flex;align-items:center;justify-content:space-between;
+  padding:1.1rem 2.5rem;
+  background:rgba(255,255,255,0.72);
+  backdrop-filter:blur(20px);
+  border-bottom:1px solid rgba(228,232,245,0.7);
+  transition:background 0.3s;
+}
+ 
+.nav-brand{
+  font-family:'Playfair Display',serif;
+  font-size:1.35rem;
+  font-weight:700;
+  background:linear-gradient(135deg,#6c47ff,#3b82f6);
+  -webkit-background-clip:text;
+  -webkit-text-fill-color:transparent;
+  background-clip:text;
+  letter-spacing:-0.02em;
+}
+ 
+.nav-pill{
+  font-size:0.78rem;
+  font-weight:500;
+  color:var(--violet);
+  background:var(--violet-soft);
+  padding:0.35rem 0.9rem;
+  border-radius:999px;
+  letter-spacing:0.03em;
+}
+ 
+/* ─── TYPOGRAPHY ─── */
+.display-title{
+  font-family:'Playfair Display',serif;
+  font-size:clamp(2.8rem,6vw,5.2rem);
+  font-weight:700;
+  line-height:1.08;
+  letter-spacing:-0.03em;
+  color:var(--ink);
+}
+ 
+.gradient-text{
+  background:linear-gradient(135deg,#6c47ff 0%,#3b82f6 50%,#10b981 100%);
+  -webkit-background-clip:text;
+  -webkit-text-fill-color:transparent;
+  background-clip:text;
+}
+ 
+.section-label{
+  font-size:0.72rem;
+  font-weight:600;
+  letter-spacing:0.18em;
+  text-transform:uppercase;
+  color:var(--violet);
+  display:inline-flex;align-items:center;gap:0.5rem;
+}
+.section-label::before{content:'';display:inline-block;width:20px;height:1.5px;background:var(--violet);}
+ 
+.section-title{
+  font-family:'Playfair Display',serif;
+  font-size:clamp(1.8rem,3.5vw,2.8rem);
+  font-weight:700;
+  letter-spacing:-0.025em;
+  line-height:1.15;
+  color:var(--ink);
+}
+ 
+/* ─── BADGE ─── */
+.badge{
+  display:inline-flex;align-items:center;gap:0.4rem;
+  font-size:0.72rem;font-weight:600;letter-spacing:0.08em;
+  padding:0.3rem 0.8rem;border-radius:999px;
+}
+ 
+/* ─── INPUT SECTION ─── */
+.input-card{
+  background:rgba(255,255,255,0.85);
+  backdrop-filter:blur(24px);
+  border-radius:24px;
+  border:1px solid rgba(255,255,255,0.9);
+  box-shadow:0 24px 80px rgba(108,71,255,0.12),0 4px 16px rgba(10,15,40,0.06);
+  padding:2.5rem 2.5rem 2rem;
+  max-width:560px;
+  margin:0 auto; 
+  position:relative;
+  overflow:hidden;
+}
+ 
+.input-card::before{
+  content:'';
+  position:absolute;top:0;left:0;right:0;height:3px;
+  background:linear-gradient(90deg,#6c47ff,#3b82f6,#10b981,#f43f5e);
+}
+ 
+.prime-label{
+  font-size:0.75rem;font-weight:600;
+  letter-spacing:0.1em;text-transform:uppercase;
+  color:var(--muted);margin-bottom:0.5rem;
+  display:block;
+}
+ 
+.prime-input{
+  width:100%;padding:0.9rem 1.1rem;
+  background:#f8f9ff;
+  border:1.5px solid var(--border);
+  border-radius:12px;
+  font-family:'DM Sans',sans-serif;
+  font-size:1rem;color:var(--ink);
+  outline:none;
+  transition:border-color 0.2s,box-shadow 0.2s,background 0.2s;
+  color-scheme:light;
+}
+.prime-input:focus{
+  border-color:var(--violet);
+  background:var(--white);
+  box-shadow:0 0 0 4px rgba(108,71,255,0.1);
+}
+ 
+.prime-btn{
+  width:100%;padding:1rem;
+  background:linear-gradient(135deg,#6c47ff,#4f46e5);
+  color:#fff;
+  font-family:'DM Sans',sans-serif;
+  font-size:0.95rem;font-weight:600;
+  border:none;border-radius:12px;cursor:pointer;
+  position:relative;overflow:hidden;
+  transition:transform 0.15s,box-shadow 0.2s;
+  box-shadow:0 4px 20px rgba(108,71,255,0.35);
+  letter-spacing:0.01em;
+}
+.prime-btn::after{
+  content:'';position:absolute;inset:0;
+  background:linear-gradient(135deg,rgba(255,255,255,0.15),transparent);
+}
+.prime-btn:hover{transform:translateY(-1px);box-shadow:0 8px 32px rgba(108,71,255,0.45);}
+.prime-btn:active{transform:translateY(0);}
+ 
+/* ─── SIGNS GRID ─── */
+.signs-grid{
+  display:grid;
+  grid-template-columns:repeat(auto-fill,minmax(130px,1fr));
+  gap:1rem;
+}
+ 
+.sign-tile{
+  background:var(--white);
+  border:1.5px solid var(--border);
+  border-radius:16px;
+  padding:1.25rem 0.75rem;
+  text-align:center;
+  cursor:pointer;
+  transition:all 0.22s cubic-bezier(0.34,1.56,0.64,1);
+  position:relative;
+  overflow:hidden;
+}
+ 
+.sign-tile::before{
+  content:'';position:absolute;inset:0;
+  background:linear-gradient(135deg,var(--violet-soft),rgba(59,130,246,0.08));
+  opacity:0;transition:opacity 0.2s;
+}
+.sign-tile:hover{border-color:rgba(108,71,255,0.4);transform:translateY(-3px);box-shadow:var(--card-shadow-hover);}
+.sign-tile:hover::before{opacity:1;}
+ 
+.sign-tile.active{
+  border-color:var(--violet);
+  box-shadow:0 0 0 3px rgba(108,71,255,0.15),var(--card-shadow-hover);
+  transform:translateY(-4px) scale(1.03);
+}
+.sign-tile.active::before{opacity:1;}
+ 
+.tile-glyph{font-size:2.2rem;display:block;margin-bottom:0.35rem;transition:transform 0.3s;}
+.sign-tile:hover .tile-glyph{transform:scale(1.15) rotate(-5deg);}
+.sign-tile.active .tile-glyph{animation:glyphPulse 2s ease-in-out infinite;}
+@keyframes glyphPulse{0%,100%{transform:scale(1);}50%{transform:scale(1.12) rotate(3deg);}}
+ 
+.tile-name{
+  font-size:0.7rem;font-weight:600;
+  letter-spacing:0.1em;text-transform:uppercase;
+  color:var(--muted);position:relative;z-index:1;
+}
+.sign-tile.active .tile-name{color:var(--violet);}
+ 
+.tile-date{font-size:0.62rem;color:#aab;margin-top:0.2rem;position:relative;z-index:1;}
+ 
+/* ─── RESULT SECTION ─── */
+.result-section{
+  animation:revealUp 0.6s cubic-bezier(0.22,1,0.36,1) forwards;
+}
+@keyframes revealUp{
+  from{opacity:0;transform:translateY(40px);}
+  to{opacity:1;transform:translateY(0);}
+}
+ 
+/* Hero card */
+.sign-hero-card{
+  border-radius:28px;
+  padding:3rem;
+  position:relative;
+  overflow:hidden;
+  color:#fff;
+}
+ 
+/* P5 canvas layer dentro del sign-hero-card */
+#p5-sign-bg{
+  position:absolute;
+  inset:0;
+  z-index:0;
+  pointer-events:none;
+  overflow:hidden;
+}
+#p5-sign-bg canvas{
+  display:block !important;
+  width:100% !important;
+  height:100% !important;
+  opacity:0.55;
+  mix-blend-mode:overlay;
+}
+ 
+.sign-hero-card::before{
+  content:'';position:absolute;inset:0;
+  background:inherit;
+  filter:brightness(0.9);
+}
+ 
+.hero-card-content{position:relative;z-index:1;}
+ 
+.hero-glyph{
+  font-size:5rem;
+  line-height:1;
+  filter:drop-shadow(0 8px 32px rgba(0,0,0,0.3));
+  display:block;
+}
+ 
+.hero-sign-name{
+  font-family:'Playfair Display',serif;
+  font-size:clamp(2.5rem,5vw,4rem);
+  font-weight:700;
+  letter-spacing:-0.03em;
+  color:#fff;
+  text-shadow:0 2px 20px rgba(0,0,0,0.2);
+}
+ 
+.hero-dates{
+  font-size:0.85rem;font-weight:500;
+  color:rgba(255,255,255,0.7);
+  letter-spacing:0.12em;text-transform:uppercase;
+}
+ 
+/* Stat cards */
+.stat-card{
+  background:var(--white);
+  border:1.5px solid var(--border);
+  border-radius:16px;
+  padding:1.25rem 1.5rem;
+  transition:box-shadow 0.2s;
+}
+.stat-card:hover{box-shadow:var(--card-shadow-hover);}
+ 
+.stat-number{
+  font-family:'Playfair Display',serif;
+  font-size:2rem;font-weight:700;
+  letter-spacing:-0.03em;
+  line-height:1;
+}
+ 
+.stat-label-sm{
+  font-size:0.72rem;font-weight:600;
+  text-transform:uppercase;letter-spacing:0.12em;
+  color:var(--muted);margin-top:0.25rem;
+}
+ 
+/* Trait pills */
+.trait-pill{
+  font-size:0.78rem;font-weight:500;
+  padding:0.4rem 0.9rem;border-radius:999px;
+  background:var(--surface);
+  border:1.5px solid var(--border);
+  color:var(--ink3);
+  transition:all 0.15s;
+  cursor:default;
+}
+.trait-pill:hover{background:var(--violet-soft);border-color:rgba(108,71,255,0.3);color:var(--violet);}
+ 
+/* Progress bar */
+.prog-bar-track{
+  height:6px;background:#f0f1f8;border-radius:999px;overflow:hidden;
+  position:relative;
+}
+.prog-bar-fill{
+  height:100%;border-radius:999px;
+  position:relative;overflow:hidden;
+  transition:width 1.2s cubic-bezier(0.22,1,0.36,1);
+}
+.prog-bar-fill::after{
+  content:'';position:absolute;inset:0;
+  background:linear-gradient(90deg,transparent,rgba(255,255,255,0.35),transparent);
+  animation:shimmer 2s ease-in-out infinite;
+}
+@keyframes shimmer{0%{transform:translateX(-100%);}100%{transform:translateX(100%);}}
+ 
+/* ─── COMPATIBILITY GRID ─── */
+.compat-grid{
+  display:grid;
+  grid-template-columns:repeat(auto-fill,minmax(100px,1fr));
+  gap:0.75rem;
+}
+ 
+.compat-tile{
+  border-radius:12px;
+  padding:0.75rem 0.5rem;
+  text-align:center;
+  border:1.5px solid transparent;
+  transition:all 0.2s;
+  cursor:default;
+}
+ 
+.compat-tile:hover{transform:scale(1.04);}
+ 
+/* ─── CELESTIAL DATA ─── */
+.data-row{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:0.85rem 0;
+  border-bottom:1px solid var(--border);
+}
+.data-row:last-child{border-bottom:none;}
+.data-key{font-size:0.82rem;color:var(--muted);font-weight:500;}
+.data-val{
+  font-family:'DM Mono',monospace;
+  font-size:0.82rem;font-weight:500;color:var(--ink2);
+  background:var(--surface);
+  padding:0.25rem 0.65rem;border-radius:6px;
+  border:1px solid var(--border);
+}
+ 
+/* ─── INFO CARD ─── */
+.info-card{
+  background:var(--white);
+  border:1.5px solid var(--border);
+  border-radius:20px;
+  padding:2rem;
+  box-shadow:var(--card-shadow);
+  position:relative;
+  overflow:hidden;
+  transition:box-shadow 0.25s;
+}
+.info-card:hover{box-shadow:var(--card-shadow-hover);}
+ 
+.info-card-accent{
+  position:absolute;top:0;left:0;right:0;height:3px;
+  border-radius:20px 20px 0 0;
+}
+ 
+/* ─── FOOTER ─── */
+.site-footer{
+  background:var(--ink);
+  color:rgba(255,255,255,0.5);
+  padding:3rem 2rem;
+  text-align:center;
+}
+ 
+.footer-brand{
+  font-family:'Playfair Display',serif;
+  font-size:1.5rem;font-weight:700;
+  background:linear-gradient(135deg,#a78bfa,#60a5fa);
+  -webkit-background-clip:text;
+  -webkit-text-fill-color:transparent;
+  background-clip:text;
+}
+ 
+/* ─── TABS ─── */
+.tab-nav{
+  display:flex;gap:0.25rem;
+  background:var(--surface);
+  border-radius:12px;padding:0.3rem;
+  border:1.5px solid var(--border);
+  width:fit-content;
+}
+.tab-btn{
+  font-size:0.82rem;font-weight:500;
+  padding:0.5rem 1.1rem;border-radius:8px;
+  border:none;background:transparent;cursor:pointer;
+  color:var(--muted);transition:all 0.18s;
+}
+.tab-btn.active{background:var(--white);color:var(--ink);box-shadow:0 2px 8px rgba(10,15,40,0.08);}
+ 
+/* ─── FORTUNE BOX ─── */
+.fortune-box{
+  border-radius:16px;padding:1.5rem;
+  background:linear-gradient(135deg,#f5f3ff,#eff6ff);
+  border:1.5px solid rgba(108,71,255,0.15);
+  position:relative;overflow:hidden;
+}
+.fortune-box::before{
+  content:'"';
+  position:absolute;top:-0.5rem;left:0.75rem;
+  font-family:'Playfair Display',serif;
+  font-size:6rem;font-weight:700;
+  color:rgba(108,71,255,0.1);
+  line-height:1;
+  pointer-events:none;
+}
+.fortune-text{
+  font-family:'Playfair Display',serif;
+  font-style:italic;
+  font-size:1.05rem;
+  color:var(--ink2);
+  line-height:1.65;
+  position:relative;z-index:1;
+}
+ 
+/* ─── SCROLL REVEAL ─── */
+.reveal{opacity:0;transform:translateY(24px);transition:opacity 0.6s ease,transform 0.6s ease;}
+.reveal.visible{opacity:1;transform:translateY(0);}
+ 
+/* ─── ERROR ─── */
+.error-text{font-size:0.78rem;color:var(--rose);margin-top:0.4rem;display:none;font-weight:500;}
+ 
+/* ─── SECTION DIVIDER ─── */
+.divider{height:1px;background:linear-gradient(90deg,transparent,var(--border),transparent);margin:0;}
+ 
+/* ─── PULSE RING ─── */
+.pulse-ring{
+  display:inline-block;width:8px;height:8px;border-radius:50%;
+  position:relative;
+}
+.pulse-ring::after{
+  content:'';position:absolute;inset:-3px;border-radius:50%;
+  border:1.5px solid currentColor;opacity:0.4;
+  animation:ringPulse 1.8s ease-in-out infinite;
+}
+@keyframes ringPulse{0%,100%{transform:scale(1);opacity:0.4;}50%{transform:scale(1.5);opacity:0;}}
+ 
+/* ─── RESPONSIVE ─── */
+@media(max-width:768px){
+  nav{padding:1rem 1.25rem;}
+  .hero-inner{padding:6rem 1.25rem 3.5rem;}
+  .input-card{padding:1.75rem 1.25rem 1.5rem;}
+  .sign-hero-card{padding:2rem 1.5rem;}
+  .info-card{padding:1.5rem 1.25rem;}
+}
+</style>
+</head>
+<body>
+ 
+<!-- ─── NAV ─── -->
+<nav>
+  <span class="nav-brand">✦ Celestia</span>
+  <span class="nav-pill">
+    <span class="pulse-ring" style="background:#10b981;color:#10b981;display:inline-block;"></span>
+    Carta Astral en vivo
+  </span>
+</nav>
+ 
+<!-- ─── HERO ─── -->
+<section class="hero-bg">
+  <!-- P5JS BACKGROUND -->
+  <div id="p5-hero-bg"></div>
+ 
+  <div class="orb orb-1"></div>
+  <div class="orb orb-2"></div>
+  <div class="orb orb-3"></div>
+  <div class="orb orb-4"></div>
+ 
+  <div class="hero-inner">
+    <div class="container" style="max-width:1100px;margin:0 auto;">
+      <div class="columns is-vcentered is-desktop">
+ 
+        <!-- Left copy -->
+        <div class="column is-6 reveal" style="padding-right:3rem;">
+          <div class="section-label mb-5">Astrología de precisión</div>
+          <h1 class="display-title mb-5">
+            Descubre tu<br/>
+            <span class="gradient-text">firma cósmica</span><br/>
+            en segundos.
+          </h1>
+          <p style="font-size:1.05rem;color:var(--muted);line-height:1.75;max-width:440px;">
+            Ingresa tu fecha de nacimiento y accede a tu perfil zodiacal completo — personalidad, compatibilidades, datos planetarios y tu mensaje del universo.
+          </p>
+ 
+          <!-- Stats row -->
+          <div style="display:flex;gap:2.5rem;margin-top:2.5rem;flex-wrap:wrap;">
+            <div>
+              <div style="font-family:'Playfair Display',serif;font-size:2rem;font-weight:700;letter-spacing:-0.03em;color:var(--ink);">12</div>
+              <div style="font-size:0.78rem;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:0.1em;">Signos</div>
+            </div>
+            <div style="width:1px;background:var(--border);"></div>
+            <div>
+              <div style="font-family:'Playfair Display',serif;font-size:2rem;font-weight:700;letter-spacing:-0.03em;color:var(--ink);">88+</div>
+              <div style="font-size:0.78rem;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:0.1em;">Parámetros</div>
+            </div>
+            <div style="width:1px;background:var(--border);"></div>
+            <div>
+              <div style="font-family:'Playfair Display',serif;font-size:2rem;font-weight:700;letter-spacing:-0.03em;color:var(--ink);">4</div>
+              <div style="font-size:0.78rem;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:0.1em;">Elementos</div>
+            </div>
+          </div>
+        </div>
+ 
+        <!-- Input card -->
+        <div class="column is-6 reveal" style="--delay:0.15s;transition-delay:var(--delay);">
+          <div class="input-card">
+            <h2 style="font-family:'Playfair Display',serif;font-size:1.4rem;font-weight:700;color:var(--ink);letter-spacing:-0.02em;margin-bottom:0.3rem;">
+              Tu carta personal
+            </h2>
+            <p style="font-size:0.85rem;color:var(--muted);margin-bottom:1.75rem;">
+              El cosmos registró tu llegada. Encuéntrala.
+            </p>
+ 
+            <div style="margin-bottom:1.25rem;">
+              <label class="prime-label" for="birthdate">Fecha de nacimiento</label>
+              <input type="date" id="birthdate" class="prime-input" max=""/>
+              <p class="error-text" id="error-text">Por favor selecciona una fecha válida.</p>
+            </div>
+ 
+            <div style="margin-bottom:1.5rem;">
+              <label class="prime-label">Tipo de consulta</label>
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.5rem;">
+                <label style="display:flex;align-items:center;gap:0.6rem;padding:0.75rem 1rem;border:1.5px solid var(--violet);border-radius:10px;cursor:pointer;background:var(--violet-soft);">
+                  <input type="radio" name="tipo" value="completo" checked style="accent-color:var(--violet);"/>
+                  <span style="font-size:0.82rem;font-weight:500;color:var(--violet);">Perfil completo</span>
+                </label>
+                <label style="display:flex;align-items:center;gap:0.6rem;padding:0.75rem 1rem;border:1.5px solid var(--border);border-radius:10px;cursor:pointer;">
+                  <input type="radio" name="tipo" value="diario" style="accent-color:var(--violet);"/>
+                  <span style="font-size:0.82rem;font-weight:500;color:var(--muted);">Resumen diario</span>
+                </label>
+              </div>
+            </div>
+ 
+            <button class="prime-btn" onclick="revelar()">
+              Revelar mi signo &nbsp;✦
+            </button>
+ 
+            <p style="font-size:0.72rem;color:var(--muted);text-align:center;margin-top:1rem;">
+              Tu información no se almacena · Solo lectura astral
+            </p>
+          </div>
+        </div>
+ 
+      </div>
+    </div>
+  </div>
+</section>
+ 
+<div class="divider"></div>
+ 
+<!-- ─── SIGNS GRID ─── -->
+<section style="padding:5rem 2rem;background:var(--surface);" id="signs-section">
+  <div class="container" style="max-width:1100px;margin:0 auto;">
+    <div style="display:flex;align-items:flex-end;justify-content:space-between;flex-wrap:wrap;gap:1rem;margin-bottom:2.5rem;">
+      <div class="reveal">
+        <div class="section-label mb-3">Los 12 signos</div>
+        <h2 class="section-title">Mapa zodiacal completo</h2>
+      </div>
+      <div class="tab-nav reveal" id="filter-tabs">
+        <button class="tab-btn active" data-filter="todos">Todos</button>
+        <button class="tab-btn" data-filter="Fuego">🔥 Fuego</button>
+        <button class="tab-btn" data-filter="Tierra">🌿 Tierra</button>
+        <button class="tab-btn" data-filter="Aire">💨 Aire</button>
+        <button class="tab-btn" data-filter="Agua">💧 Agua</button>
+      </div>
+    </div>
+    <div class="signs-grid reveal" id="signs-grid"></div>
+  </div>
+</section>
+ 
+<div class="divider"></div>
+ 
+<!-- ─── RESULT ─── -->
+<section style="padding:5rem 2rem;background:var(--white);display:none;" id="result-section">
+  <div class="container" style="max-width:1100px;margin:0 auto;" id="result-container">
+    <!-- filled by JS -->
+  </div>
+</section>
+ 
+<div class="divider"></div>
+ 
+<!-- ─── FOOTER ─── -->
+<footer class="site-footer">
+  <div class="footer-brand mb-3">✦ Celestia</div>
+  <p style="font-size:0.82rem;letter-spacing:0.05em;">Astrología de precisión · Los astros como espejo interior</p>
+  <p style="font-size:0.72rem;margin-top:0.75rem;opacity:0.4;">Las lecturas astrológicas son de carácter interpretativo y no predictivo.</p>
+</footer>
+ 
+<script>
+/* ─────────────────────────────────────────────
+   P5JS ANIMATED BACKGROUND
+   ───────────────────────────────────────────── */
+const heroSketch = (p) => {
+  let stars = [];
+  let waves = [];
+  let dust = [];
+  let container;
+  let mouseGlow = {x:0,y:0};
+ 
+  class Star {
+    constructor() {
+      this.reset();
+      this.x = p.random(p.width);
+      this.y = p.random(p.height);
+      this.size = p.random(1.5, 4.5);
+      this.alpha = p.random(110, 210);
+      this.speed = p.random(0.08, 0.28);
+      this.phase = p.random(p.TWO_PI);
+      this.hue = p.random([0,1,2,3]);
+    }
+    reset() {
+      this.x = p.random(p.width);
+      this.y = p.random(p.height);
+    }
+    update() {
+      this.y += this.speed;
+      this.x += p.sin(p.frameCount * 0.003 + this.phase) * 0.12;
+      if (this.y > p.height + 10) {
+        this.y = -10;
+        this.x = p.random(p.width);
+      }
+    }
+    draw() {
+      const twinkle = p.sin(p.frameCount * 0.03 + this.phase) * 30;
+      let c;
+      if(this.hue===0) c = [192,132,252]; // lavanda
+      if(this.hue===1) c = [96,165,250];  // azul
+      if(this.hue===2) c = [52,211,153];  // menta
+      if(this.hue===3) c = [251,113,133]; // rosa
+ 
+      p.noStroke();
+      p.fill(c[0], c[1], c[2], this.alpha + twinkle);
+      p.circle(this.x, this.y, this.size);
+ 
+      p.fill(c[0], c[1], c[2], (this.alpha + twinkle) * 0.18);
+      p.circle(this.x, this.y, this.size * 4.2);
+    }
+  }
+ 
+  class WaveLine {
+    constructor(i) {
+      this.i = i;
+      this.offset = p.random(1000);
+      this.yBase = p.map(i, 0, 11, p.height * 0.08, p.height * 0.92);
+      this.amp = p.random(10, 28);
+      this.weight = p.random(2.0, 3.5);
+      this.speed = p.random(0.0018, 0.0042);
+      this.colorSet = p.random([
+        [168,85,247,95],
+        [59,130,246,88],
+        [16,185,129,82],
+        [244,63,94,78]
+      ]);
+    }
+    draw() {
+      p.noFill();
+      p.stroke(...this.colorSet);
+      p.strokeWeight(this.weight);
+      p.beginShape();
+      for (let x = -40; x <= p.width + 40; x += 14) {
+        const n = p.noise(x * 0.0035, this.i * 0.15, p.frameCount * this.speed + this.offset);
+        const y = this.yBase + p.sin(x * 0.008 + p.frameCount * 0.01 + this.offset) * this.amp + (n - 0.5) * 55;
+        p.curveVertex(x, y);
+      }
+      p.endShape();
+    }
+  }
+ 
+  class Dust {
+    constructor() {
+      this.x = p.random(p.width);
+      this.y = p.random(p.height);
+      this.r = p.random(40, 130);
+      this.alpha = p.random(35, 70);
+      this.dx = p.random(-0.08, 0.08);
+      this.dy = p.random(-0.05, 0.05);
+      this.c = p.random([
+        [192,132,252],
+        [96,165,250],
+        [52,211,153],
+        [251,113,133]
+      ]);
+    }
+    update() {
+      this.x += this.dx;
+      this.y += this.dy;
+      if (this.x < -120) this.x = p.width + 120;
+      if (this.x > p.width + 120) this.x = -120;
+      if (this.y < -120) this.y = p.height + 120;
+      if (this.y > p.height + 120) this.y = -120;
+    }
+    draw() {
+      const g = p.drawingContext.createRadialGradient(this.x, this.y, 0, this.x, this.y, this.r);
+      g.addColorStop(0, `rgba(${this.c[0]},${this.c[1]},${this.c[2]},${this.alpha/255})`);
+      g.addColorStop(1, `rgba(${this.c[0]},${this.c[1]},${this.c[2]},0)`);
+      p.drawingContext.fillStyle = g;
+      p.noStroke();
+      p.circle(this.x, this.y, this.r * 2);
+    }
+  }
+ 
+  p.setup = () => {
+    container = document.getElementById('p5-hero-bg');
+    const c = p.createCanvas(container.offsetWidth, container.offsetHeight);
+    c.parent('p5-hero-bg');
+    p.pixelDensity(1);
+ 
+    for(let i=0;i<70;i++) stars.push(new Star());
+    for(let i=0;i<12;i++) waves.push(new WaveLine(i));
+    for(let i=0;i<18;i++) dust.push(new Dust());
+ 
+    mouseGlow.x = p.width * 0.7;
+    mouseGlow.y = p.height * 0.3;
+  };
+ 
+  p.draw = () => {
+    p.clear();
+ 
+    // soft ambient tint
+    const grad = p.drawingContext.createLinearGradient(0, 0, p.width, p.height);
+    grad.addColorStop(0, 'rgba(196,155,255,0.12)');
+    grad.addColorStop(0.35, 'rgba(130,190,255,0.09)');
+    grad.addColorStop(0.7, 'rgba(100,220,180,0.07)');
+    grad.addColorStop(1, 'rgba(255,160,175,0.07)');
+    p.drawingContext.fillStyle = grad;
+    p.noStroke();
+    p.rect(0,0,p.width,p.height);
+ 
+    dust.forEach(d => { d.update(); d.draw(); });
+ 
+    // constellation lines
+    p.strokeWeight(1.8);
+    for(let i=0;i<stars.length;i++){
+      const a = stars[i];
+      for(let j=i+1;j<stars.length;j+=11){
+        const b = stars[j];
+        const dist = p.dist(a.x,a.y,b.x,b.y);
+        if(dist < 130){
+          p.stroke(168,85,247,p.map(dist,0,130,90,0));
+          p.line(a.x,a.y,b.x,b.y);
+        }
+      }
+    }
+ 
+    waves.forEach(w => w.draw());
+    stars.forEach(s => { s.update(); s.draw(); });
+ 
+    // mouse cosmic glow
+    mouseGlow.x += (p.mouseX - mouseGlow.x) * 0.035;
+    mouseGlow.y += (p.mouseY - mouseGlow.y) * 0.035;
+ 
+    if (p.mouseX >= 0 && p.mouseY >= 0 && p.mouseX <= p.width && p.mouseY <= p.height) {
+      const mg = p.drawingContext.createRadialGradient(mouseGlow.x, mouseGlow.y, 0, mouseGlow.x, mouseGlow.y, 180);
+      mg.addColorStop(0, 'rgba(255,255,255,0.08)');
+      mg.addColorStop(0.2, 'rgba(167,139,250,0.08)');
+      mg.addColorStop(0.45, 'rgba(96,165,250,0.04)');
+      mg.addColorStop(1, 'rgba(255,255,255,0)');
+      p.drawingContext.fillStyle = mg;
+      p.noStroke();
+      p.circle(mouseGlow.x, mouseGlow.y, 360);
+    }
+ 
+    // center pulse ring
+    p.noFill();
+    p.stroke(168,85,247,80);
+    p.strokeWeight(2);
+    const pulse = 130 + p.sin(p.frameCount * 0.02) * 18;
+    p.circle(p.width * 0.73, p.height * 0.28, pulse * 2);
+ 
+    p.stroke(59,130,246,65);
+    p.circle(p.width * 0.73, p.height * 0.28, (pulse + 42) * 2);
+  };
+ 
+  p.windowResized = () => {
+    if (!container) return;
+    p.resizeCanvas(container.offsetWidth, container.offsetHeight);
+    waves = [];
+    for(let i=0;i<12;i++) waves.push(new WaveLine(i));
+  };
+};
+ 
+window.addEventListener('DOMContentLoaded', () => {
+  new p5(heroSketch);
+});
+ 
+/* ─────────────────────────────────────────────
+   P5JS SIGN CARD BACKGROUND (órbitas + cometas)
+   ───────────────────────────────────────────── */
+let signCardP5 = null;
+ 
+function initSignCardSketch(accentRGB) {
+  if (signCardP5) {
+    signCardP5.remove();
+    signCardP5 = null;
+  }
+ 
+  const signSketch = (p) => {
+    let container;
+    let orbits = [];
+    let comets = [];
+    let sigil = [];
+    const [r, g, b] = accentRGB;
+ 
+    class OrbitRing {
+      constructor(radius, speed, count, offset) {
+        this.radius = radius;
+        this.speed = speed;
+        this.count = count;
+        this.offset = offset;
+        this.angle = p.random(p.TWO_PI);
+      }
+      draw(cx, cy) {
+        // ring line
+        p.noFill();
+        p.stroke(255, 255, 255, 22);
+        p.strokeWeight(0.7);
+        p.ellipse(cx, cy, this.radius * 2, this.radius * 0.55);
+ 
+        this.angle += this.speed;
+        for (let i = 0; i < this.count; i++) {
+          const a = this.angle + (p.TWO_PI / this.count) * i + this.offset;
+          // proyección elíptica
+          const px = cx + Math.cos(a) * this.radius;
+          const py = cy + Math.sin(a) * this.radius * 0.275;
+          const sz = p.map(Math.sin(a), -1, 1, 2.5, 5.5);
+          const al = p.map(Math.sin(a), -1, 1, 80, 220);
+          p.noStroke();
+          p.fill(255, 255, 255, al);
+          p.circle(px, py, sz);
+          // glow
+          p.fill(255, 255, 255, al * 0.18);
+          p.circle(px, py, sz * 5);
+        }
+      }
+    }
+ 
+    class Comet {
+      constructor() { this.reset(true); }
+      reset(initial) {
+        this.x = initial ? p.random(p.width) : -60;
+        this.y = initial ? p.random(p.height) : p.random(p.height * 0.1, p.height * 0.9);
+        this.vx = p.random(2.5, 5.5);
+        this.vy = p.random(-0.5, 0.5);
+        this.len = p.random(40, 110);
+        this.alpha = p.random(140, 220);
+        this.size = p.random(1.5, 3.5);
+        if (initial) this.x = p.random(p.width);
+      }
+      update() {
+        this.x += this.vx;
+        this.y += this.vy;
+        if (this.x > p.width + 120) this.reset(false);
+      }
+      draw() {
+        for (let i = 0; i < 12; i++) {
+          const t = i / 12;
+          const tx = this.x - this.vx * this.len * t;
+          const ty = this.y - this.vy * this.len * t;
+          p.noStroke();
+          p.fill(255, 255, 255, this.alpha * (1 - t) * 0.6);
+          p.circle(tx, ty, this.size * (1 - t * 0.6));
+        }
+        p.fill(255, 255, 255, this.alpha);
+        p.circle(this.x, this.y, this.size);
+      }
+    }
+ 
+    p.setup = () => {
+      container = document.getElementById('p5-sign-bg');
+      if (!container) return;
+      const c = p.createCanvas(container.offsetWidth, container.offsetHeight);
+      c.parent('p5-sign-bg');
+      p.pixelDensity(1);
+ 
+      // Órbitas concéntricas centradas a la derecha
+      orbits.push(new OrbitRing(p.width * 0.18, 0.012, 1, 0));
+      orbits.push(new OrbitRing(p.width * 0.28, 0.008, 2, p.PI));
+      orbits.push(new OrbitRing(p.width * 0.40, 0.005, 3, p.PI * 0.66));
+      orbits.push(new OrbitRing(p.width * 0.52, 0.003, 4, p.PI * 0.25));
+ 
+      for (let i = 0; i < 5; i++) comets.push(new Comet());
+ 
+      // Puntos del sigilo (estrella de 6 puntas sutil)
+      const cx = p.width * 0.78, cy = p.height * 0.5, sr = p.height * 0.32;
+      for (let i = 0; i < 6; i++) {
+        const a = (p.TWO_PI / 6) * i - p.HALF_PI;
+        sigil.push({ x: cx + Math.cos(a) * sr, y: cy + Math.sin(a) * sr });
+      }
+    };
+ 
+    p.draw = () => {
+      p.clear();
+      const cx = p.width * 0.78;
+      const cy = p.height * 0.5;
+ 
+      // Sigilo: líneas cruzadas
+      p.strokeWeight(0.8);
+      for (let i = 0; i < sigil.length; i++) {
+        for (let j = i + 1; j < sigil.length; j++) {
+          const d = p.dist(sigil[i].x, sigil[i].y, sigil[j].x, sigil[j].y);
+          const al = d < cy * 0.9 ? 35 : 12;
+          p.stroke(255, 255, 255, al);
+          p.line(sigil[i].x, sigil[i].y, sigil[j].x, sigil[j].y);
+        }
+      }
+      // Vértices del sigilo
+      sigil.forEach(pt => {
+        p.noStroke();
+        p.fill(255, 255, 255, 55);
+        p.circle(pt.x, pt.y, 5);
+        p.fill(255, 255, 255, 15);
+        p.circle(pt.x, pt.y, 18);
+      });
+ 
+      // Órbitas
+      orbits.forEach(o => o.draw(cx, cy));
+ 
+      // Cometas
+      comets.forEach(c => { c.update(); c.draw(); });
+ 
+      // Pulso central
+      const pulse = 18 + Math.sin(p.frameCount * 0.04) * 5;
+      p.noFill();
+      p.stroke(255, 255, 255, 55);
+      p.strokeWeight(1.2);
+      p.circle(cx, cy, pulse * 2);
+      p.stroke(255, 255, 255, 25);
+      p.circle(cx, cy, (pulse + 14) * 2);
+      p.noStroke();
+      p.fill(255, 255, 255, 180);
+      p.circle(cx, cy, 6);
+    };
+ 
+    p.windowResized = () => {
+      if (!container) return;
+      p.resizeCanvas(container.offsetWidth, container.offsetHeight);
+    };
+  };
+ 
+  signCardP5 = new p5(signSketch);
+}
+</script>
+ 
+<script>
+const DATA = [
+  {
+    name:"Aries",glyph:"♈",dates:"21 Mar – 19 Abr",element:"Fuego",
+    gradient:"linear-gradient(135deg,#ff6b35,#f7c59f,#e84393)",
+    accentColor:"#ff6b35",planet:"Marte",house:"I",mode:"Cardinal",
+    lucky:[7,13,41],stone:"Rubí",metal:"Hierro",day:"Martes",
+    color:"Escarlata",
+    description:"Aries es la chispa que enciende el zodiaco. Regido por Marte, el guerrero del sistema solar, encarna la voluntad pura sin diluir. Primero en actuar, primero en sentir, primero en conquistar. Su energía es un pulso de arranque: impredecible, brillante y siempre en movimiento hacia adelante. La vida para Aries es una secuencia de umbrales que cruzar.",
+    traits:["Pionero","Valiente","Directo","Impulsivo","Competitivo","Apasionado","Independiente"],
+    compat:["Leo","Sagitario","Géminis","Acuario"],
+    avoid:["Cáncer","Capricornio"],
+    stats:{Energía:95,Liderazgo:88,Intuición:62,Paciencia:18,Empatía:52,Creatividad:70},
+    fortune:"El coraje no es ausencia de miedo — es la decisión de avanzar aunque el camino no sea claro. Tu fuego interior es suficiente brújula.",
+    forecast:"Esta semana el Sol activa tu casa de la identidad. Proyectos iniciados con determinación ahora alcanzarán su primer punto de inflexión."
+  },
+  {
+    name:"Tauro",glyph:"♉",dates:"20 Abr – 20 May",element:"Tierra",
+    gradient:"linear-gradient(135deg,#11998e,#38ef7d,#73b94b)",
+    accentColor:"#11998e",planet:"Venus",house:"II",mode:"Fijo",
+    lucky:[2,6,29],stone:"Esmeralda",metal:"Cobre",day:"Viernes",
+    color:"Verde bosque",
+    description:"Tauro construye imperios lentos. Regido por Venus, fusiona la sensualidad terrenal con una persistencia geológica. Cada decisión es arquitectura: sólida, pensada, indestructible. No corre; no necesita hacerlo. El tiempo siempre trabaja a su favor porque él siempre trabaja. La belleza no es lujo para Tauro — es necesidad vital.",
+    traits:["Perseverante","Sensual","Leal","Práctico","Paciente","Terco","Confiable"],
+    compat:["Virgo","Capricornio","Cáncer","Piscis"],
+    avoid:["Leo","Acuario"],
+    stats:{Energía:60,Liderazgo:72,Intuición:58,Paciencia:97,Empatía:74,Creatividad:68},
+    fortune:"La lentitud no es debilidad — es sabiduría disfrazada. Todo lo que construyes con calma permanece cuando los vientos del caos sacuden el mundo.",
+    forecast:"Venus en trígono con tu regente ilumina tus finanzas y tus relaciones íntimas. Un momento fértil para consolidar lo que ya tienes."
+  },
+  {
+    name:"Géminis",glyph:"♊",dates:"21 May – 20 Jun",element:"Aire",
+    gradient:"linear-gradient(135deg,#f7971e,#ffd200,#faa51a)",
+    accentColor:"#f7971e",planet:"Mercurio",house:"III",mode:"Mutable",
+    lucky:[3,5,14],stone:"Aguamarina",metal:"Mercurio",day:"Miércoles",
+    color:"Amarillo",
+    description:"Géminis procesa la realidad en paralelo. Regido por Mercurio, su mente es una red neuronal en actualización perpetua. Cambia de perspectiva a velocidad de código, construye puentes entre mundos que otros ni siquiera ven. Sus contradicciones no son defectos — son su arquitectura de alta resolución para una realidad compleja.",
+    traits:["Versátil","Ingenioso","Curioso","Adaptable","Elocuente","Juguetón","Volátil"],
+    compat:["Libra","Acuario","Aries","Leo"],
+    avoid:["Piscis","Virgo"],
+    stats:{Energía:82,Liderazgo:68,Intuición:78,Paciencia:32,Empatía:65,Creatividad:92},
+    fortune:"Tu mente es tu mayor instrumento y tu mayor trampa. Cuando aprendes a respirar entre dos pensamientos, encuentras la claridad que siempre buscaste.",
+    forecast:"Mercurio directo potencia tu comunicación. Semana ideal para cerrar negociaciones, firmar contratos y tender puentes importantes."
+  },
+  {
+    name:"Cáncer",glyph:"♋",dates:"21 Jun – 22 Jul",element:"Agua",
+    gradient:"linear-gradient(135deg,#4776e6,#8e54e9,#a29bfe)",
+    accentColor:"#4776e6",planet:"Luna",house:"IV",mode:"Cardinal",
+    lucky:[2,7,11],stone:"Perla",metal:"Plata",day:"Lunes",
+    color:"Plata",
+    description:"Cáncer custodia lo invisible: el hogar emocional de quienes ama. Regido por la Luna, su kernel procesa emociones con una profundidad que otros signos no pueden mapear. Protector instintivo, construye fortalezas invisibles alrededor de sus vínculos más preciados. La memoria afectiva es su almacenamiento primario — lo que sintió nunca se borra.",
+    traits:["Intuitivo","Protector","Empático","Creativo","Sensible","Nostálgico","Tenaz"],
+    compat:["Escorpio","Piscis","Tauro","Virgo"],
+    avoid:["Aries","Libra"],
+    stats:{Energía:55,Liderazgo:65,Intuición:95,Paciencia:72,Empatía:99,Creatividad:80},
+    fortune:"Tu sensibilidad no es fragilidad — es sonar. Percibes frecuencias que el mundo racional nunca detectará. Eso te hace imprescindible.",
+    forecast:"La Luna llena en tu casa opuesta abre conversaciones profundas. Honra tus necesidades emocionales sin disculparte por ellas."
+  },
+  {
+    name:"Leo",glyph:"♌",dates:"23 Jul – 22 Ago",element:"Fuego",
+    gradient:"linear-gradient(135deg,#f953c6,#b91d73,#f7b42c)",
+    accentColor:"#f953c6",planet:"Sol",house:"V",mode:"Fijo",
+    lucky:[1,5,19],stone:"Diamante",metal:"Oro",day:"Domingo",
+    color:"Dorado",
+    description:"Leo irradia en frecuencia solar. Su presencia tiene gravedad propia — los demás orbitan sin entender por qué. Regido por el Sol, Leo fusiona carisma con generosidad extrema. El escenario siempre es suyo, pero lo comparte con quienes ama. No busca admiración para llenarse: la entrega para iluminar. El corazón de Leo es genuinamente grande.",
+    traits:["Magnético","Generoso","Creativo","Orgulloso","Leal","Dramático","Protector"],
+    compat:["Aries","Sagitario","Géminis","Libra"],
+    avoid:["Tauro","Escorpio"],
+    stats:{Energía:92,Liderazgo:97,Intuición:60,Paciencia:45,Empatía:72,Creatividad:88},
+    fortune:"La luz que proyectas no tiene origen externo — nace de ti. Cuando lo olvidas, buscas aplausos. Cuando lo recuerdas, simplemente brillas.",
+    forecast:"El Sol en sextil a Júpiter te regala una semana de expansión. Proyectos creativos y relaciones personales reciben un impulso extraordinario."
+  },
+  {
+    name:"Virgo",glyph:"♍",dates:"23 Ago – 22 Sep",element:"Tierra",
+    gradient:"linear-gradient(135deg,#56ab2f,#a8e063,#7ec850)",
+    accentColor:"#56ab2f",planet:"Mercurio",house:"VI",mode:"Mutable",
+    lucky:[3,6,27],stone:"Jade",metal:"Mercurio",day:"Miércoles",
+    color:"Verde oliva",
+    description:"Virgo es el algoritmo de optimización del zodiaco. Regido por Mercurio, procesa la realidad con una precisión que roza lo quirúrgico. Su mente detecta la anomalía en el ruido, el patrón en el caos. Meticuloso hasta el nivel atómico, no busca la perfección por orgullo — la busca porque cree que todo merece su mejor versión.",
+    traits:["Analítico","Meticuloso","Servicial","Práctico","Crítico","Modesto","Organizado"],
+    compat:["Tauro","Capricornio","Cáncer","Escorpio"],
+    avoid:["Sagitario","Géminis"],
+    stats:{Energía:64,Liderazgo:65,Intuición:85,Paciencia:90,Empatía:78,Creatividad:75},
+    fortune:"El detalle que nadie más nota es el que lo cambia todo. Tu mirada fina no es obsesión — es el don de ver lo que el mundo pasa por alto.",
+    forecast:"Mercurio en tu segunda casa activa conversaciones sobre valor y recursos. Un análisis detallado esta semana puede abrir puertas insospechadas."
+  },
+  {
+    name:"Libra",glyph:"♎",dates:"23 Sep – 22 Oct",element:"Aire",
+    gradient:"linear-gradient(135deg,#ee0979,#ff6a00,#f093fb)",
+    accentColor:"#ee0979",planet:"Venus",house:"VII",mode:"Cardinal",
+    lucky:[6,9,15],stone:"Zafiro",metal:"Cobre",day:"Viernes",
+    color:"Rosado",
+    description:"Libra ejecuta el protocolo del equilibrio universal. Regido por Venus, su procesador evalúa cada variable antes de emitir un juicio. Diplomático de alto rendimiento, convierte tensiones en acuerdos con una elegancia que desconcierta. La belleza y la justicia no son valores separados para Libra — son la misma frecuencia en distintas octavas.",
+    traits:["Diplomático","Justo","Estético","Sociable","Indeciso","Refinado","Idealista"],
+    compat:["Géminis","Acuario","Leo","Sagitario"],
+    avoid:["Cáncer","Capricornio"],
+    stats:{Energía:62,Liderazgo:70,Intuición:72,Paciencia:74,Empatía:86,Creatividad:84},
+    fortune:"El equilibrio no es un punto estático — es una danza continua. Tu maestría no está en no caerte, sino en saber cómo volver al centro.",
+    forecast:"Venus activa tu casa de las relaciones. Las conversaciones pendientes finalmente encuentran el tono correcto. Semana ideal para reconciliar."
+  },
+  {
+    name:"Escorpio",glyph:"♏",dates:"23 Oct – 21 Nov",element:"Agua",
+    gradient:"linear-gradient(135deg,#141e30,#243b55,#4a1942)",
+    accentColor:"#8b5cf6",planet:"Plutón",house:"VIII",mode:"Fijo",
+    lucky:[8,11,22],stone:"Obsidiana",metal:"Plutonio",day:"Martes",
+    color:"Ciruela",
+    description:"Escorpio opera desde la zona más profunda del espectro emocional. Regido por Plutón, transforma todo lo que toca: destruye estructuras caducas para renacer en versión actualizada. No hay zona del alma humana donde no pueda entrar. Su intensidad no es actuación — es la manera en que experimenta cada momento como si fuera el primero y el último.",
+    traits:["Intenso","Perceptivo","Leal","Transformador","Misterioso","Apasionado","Estratégico"],
+    compat:["Cáncer","Piscis","Virgo","Capricornio"],
+    avoid:["Leo","Acuario"],
+    stats:{Energía:88,Liderazgo:82,Intuición:98,Paciencia:58,Empatía:80,Creatividad:78},
+    fortune:"Tu poder no está en el control — está en la transformación. Lo que dejas ir con intención te devuelve lo que realmente mereces.",
+    forecast:"Plutón en trígono con tu nodo norte señala una semana de revelaciones. Algo oculto emerge a la luz — y te libera más de lo que esperabas."
+  },
+  {
+    name:"Sagitario",glyph:"♐",dates:"22 Nov – 21 Dic",element:"Fuego",
+    gradient:"linear-gradient(135deg,#f7971e,#ffd200,#ff6f61)",
+    accentColor:"#f59e0b",planet:"Júpiter",house:"IX",mode:"Mutable",
+    lucky:[3,9,27],stone:"Topacio",metal:"Estaño",day:"Jueves",
+    color:"Púrpura",
+    description:"Sagitario viaja a frecuencias que otros no pueden sintonizar. Regido por Júpiter, el gran expansor, empuja sus límites hasta que estos simplemente desaparecen. Filósofo de campo: combina la aventura física con la búsqueda insaciable de verdad. La libertad no es un valor para Sagitario — es el oxígeno sin el cual no puede funcionar.",
+    traits:["Aventurero","Optimista","Filosófico","Honesto","Imprudente","Libre","Visionario"],
+    compat:["Aries","Leo","Libra","Acuario"],
+    avoid:["Virgo","Piscis"],
+    stats:{Energía:93,Liderazgo:75,Intuición:80,Paciencia:28,Empatía:64,Creatividad:85},
+    fortune:"La verdad que buscas en el horizonte siempre estuvo aquí. La distancia no amplía la visión — la quietud la afila.",
+    forecast:"Júpiter en aspecto favorable a tu regente. Semana de expansión en proyectos educativos, viajes y contactos internacionales."
+  },
+  {
+    name:"Capricornio",glyph:"♑",dates:"22 Dic – 19 Ene",element:"Tierra",
+    gradient:"linear-gradient(135deg,#2c3e50,#4a6274,#6c8695)",
+    accentColor:"#64748b",planet:"Saturno",house:"X",mode:"Cardinal",
+    lucky:[1,4,10],stone:"Ónice",metal:"Plomo",day:"Sábado",
+    color:"Negro",
+    description:"Capricornio ejecuta el protocolo de ascenso imparable. Regido por Saturno, el arquitecto del tiempo, su estructura interna convierte la disciplina en poder acumulado. Escala montañas que otros ni siquiera consideran posibles, siempre con un plan de contingencia activo. La cima no es un destino para Capricornio — es su estado natural de operación.",
+    traits:["Ambicioso","Disciplinado","Resiliente","Estratega","Responsable","Prudente","Frío"],
+    compat:["Tauro","Virgo","Escorpio","Piscis"],
+    avoid:["Aries","Libra"],
+    stats:{Energía:70,Liderazgo:92,Intuición:72,Paciencia:96,Empatía:54,Creatividad:65},
+    fortune:"El tiempo no es tu enemigo — es tu aliado más leal. Cada paso calculado te acerca a lo que construiste antes de que el mundo lo viera.",
+    forecast:"Saturno estabiliza tu sector profesional. Decisiones tomadas esta semana con rigor y visión tienen potencial de impacto a largo plazo."
+  },
+  {
+    name:"Acuario",glyph:"♒",dates:"20 Ene – 18 Feb",element:"Aire",
+    gradient:"linear-gradient(135deg,#00b4db,#0083b0,#48c6ef)",
+    accentColor:"#0ea5e9",planet:"Urano",house:"XI",mode:"Fijo",
+    lucky:[4,7,11],stone:"Amatista",metal:"Aluminio",day:"Sábado",
+    color:"Azul eléctrico",
+    description:"Acuario transmite desde el futuro. Regido por Urano, su sistema operativo está actualizado décadas por delante de su época. Rebelde con causa cósmica, deconstruye estructuras obsoletas para instalar versiones mejoradas de humanidad. Colectivo en visión, profundamente singular en ejecución. El futuro no le preocupa — lo está creando ahora mismo.",
+    traits:["Visionario","Innovador","Humanista","Rebelde","Excéntrico","Independiente","Analítico"],
+    compat:["Géminis","Libra","Aries","Sagitario"],
+    avoid:["Tauro","Escorpio"],
+    stats:{Energía:76,Liderazgo:78,Intuición:88,Paciencia:54,Empatía:82,Creatividad:96},
+    fortune:"Ser diferente no es un defecto del sistema — eres la actualización que el sistema necesita. El mundo tardará en reconocerlo. Tú no necesitas esperar.",
+    forecast:"Urano activa tu casa del autoconocimiento. Una conversación inesperada esta semana puede cambiar la dirección de un proyecto clave."
+  },
+  {
+    name:"Piscis",glyph:"♓",dates:"19 Feb – 20 Mar",element:"Agua",
+    gradient:"linear-gradient(135deg,#a18cd1,#fbc2eb,#96c6ea)",
+    accentColor:"#a78bfa",planet:"Neptuno",house:"XII",mode:"Mutable",
+    lucky:[2,7,12],stone:"Amatista",metal:"Platino",day:"Jueves",
+    color:"Verde mar",
+    description:"Piscis existe en el umbral entre dimensiones. Regido por Neptuno, disuelve las fronteras entre el yo y el universo con una facilidad que aterra y maravilla a partes iguales. Artista del inconsciente, navega realidades que otros no pueden ni imaginar. Su empatía no tiene cortafuegos: absorbe el estado emocional ajeno antes de procesarlo como propio.",
+    traits:["Empático","Soñador","Artístico","Intuitivo","Compasivo","Escapista","Espiritual"],
+    compat:["Cáncer","Escorpio","Tauro","Capricornio"],
+    avoid:["Géminis","Sagitario"],
+    stats:{Energía:50,Liderazgo:58,Intuición:99,Paciencia:68,Empatía:99,Creatividad:98},
+    fortune:"El océano no se disculpa por su profundidad. Tampoco tú debes disculparte por la intensidad con que sientes y creas.",
+    forecast:"Neptuno en tu primera casa intensifica tu campo perceptivo. Sueños con mensajes claros esta semana. La meditación abre puertas que la mente racional tiene cerradas."
+  }
+];
+ 
+const ELEM_COLOR={
+  Fuego:{bg:"#fff4ef",text:"#c2410c",border:"rgba(249,115,22,0.25)"},
+  Tierra:{bg:"#f0fdf4",text:"#15803d",border:"rgba(34,197,94,0.25)"},
+  Aire:{bg:"#eff6ff",text:"#1d4ed8",border:"rgba(59,130,246,0.25)"},
+  Agua:{bg:"#f5f3ff",text:"#7c3aed",border:"rgba(139,92,246,0.25)"}
+};
+ 
+const STAT_COLORS=["#6c47ff","#3b82f6","#10b981","#f59e0b","#f43f5e","#8b5cf6"];
+ 
+let activeSign=null;
+ 
+// Set max date
+document.getElementById('birthdate').max=new Date().toISOString().split('T')[0];
+ 
+// Build grid
+function buildGrid(filter="todos"){
+  const grid=document.getElementById('signs-grid');
+  grid.innerHTML='';
+  DATA.forEach((s,i)=>{
+    if(filter!=="todos"&&s.element!==filter)return;
+    const ec=ELEM_COLOR[s.element];
+    const tile=document.createElement('div');
+    tile.className='sign-tile'+(activeSign===s.name?' active':'');
+    tile.dataset.name=s.name;
+    tile.innerHTML=`
+      <span class="tile-glyph">${s.glyph}</span>
+      <div class="tile-name">${s.name}</div>
+      <div class="tile-date">${s.dates}</div>
+      <div style="margin-top:0.5rem;">
+        <span style="font-size:0.6rem;font-weight:600;letter-spacing:0.1em;padding:0.2rem 0.5rem;border-radius:999px;background:${ec.bg};color:${ec.text};border:1px solid ${ec.border};">${s.element}</span>
+      </div>
+    `;
+    tile.addEventListener('click',()=>{
+      activeSign=s.name;
+      buildGrid(filter);
+      renderResult(s);
+    });
+    grid.appendChild(tile);
+  });
+}
+ 
+buildGrid();
+ 
+// Filter tabs
+document.getElementById('filter-tabs').addEventListener('click',e=>{
+  const btn=e.target.closest('.tab-btn');
+  if(!btn)return;
+  document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  buildGrid(btn.dataset.filter);
+});
+ 
+// Get sign from date
+function getSign(m,d){
+  if((m===3&&d>=21)||(m===4&&d<=19))return DATA[0];
+  if((m===4&&d>=20)||(m===5&&d<=20))return DATA[1];
+  if((m===5&&d>=21)||(m===6&&d<=20))return DATA[2];
+  if((m===6&&d>=21)||(m===7&&d<=22))return DATA[3];
+  if((m===7&&d>=23)||(m===8&&d<=22))return DATA[4];
+  if((m===8&&d>=23)||(m===9&&d<=22))return DATA[5];
+  if((m===9&&d>=23)||(m===10&&d<=22))return DATA[6];
+  if((m===10&&d>=23)||(m===11&&d<=21))return DATA[7];
+  if((m===11&&d>=22)||(m===12&&d<=21))return DATA[8];
+  if((m===12&&d>=22)||(m===1&&d<=19))return DATA[9];
+  if((m===1&&d>=20)||(m===2&&d<=18))return DATA[10];
+  return DATA[11];
+}
+ 
+function revelar(){
+  const inp=document.getElementById('birthdate');
+  const err=document.getElementById('error-text');
+  if(!inp.value){err.style.display='block';return;}
+  err.style.display='none';
+  const [y,m,d]=inp.value.split('-').map(Number);
+  const s=getSign(m,d);
+  activeSign=s.name;
+  buildGrid("todos");
+  renderResult(s);
+}
+ 
+function renderResult(s){
+  const sec=document.getElementById('result-section');
+  const con=document.getElementById('result-container');
+  const ec=ELEM_COLOR[s.element];
+ 
+  const statsHtml=Object.entries(s.stats).map(([k,v],i)=>`
+    <div style="margin-bottom:1rem;">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.4rem;">
+        <span style="font-size:0.78rem;font-weight:600;color:var(--ink3);text-transform:uppercase;letter-spacing:0.08em;">${k}</span>
+        <span style="font-family:'DM Mono',monospace;font-size:0.78rem;font-weight:500;color:${STAT_COLORS[i]};">${v}</span>
+      </div>
+      <div class="prog-bar-track">
+        <div class="prog-bar-fill" style="width:0%;background:linear-gradient(90deg,${STAT_COLORS[i]},${STAT_COLORS[(i+1)%STAT_COLORS.length]});" data-val="${v}"></div>
+      </div>
+    </div>
+  `).join('');
+ 
+  const traitsHtml=s.traits.map(t=>`<span class="trait-pill">${t}</span>`).join('');
+ 
+  const compatHtml=DATA.filter(d=>s.compat.includes(d.name)).map(d=>`
+    <div class="compat-tile" style="background:${d.accentColor}15;border:1.5px solid ${d.accentColor}30;">
+      <div style="font-size:1.8rem;margin-bottom:0.3rem;">${d.glyph}</div>
+      <div style="font-size:0.65rem;font-weight:600;color:${d.accentColor};text-transform:uppercase;letter-spacing:0.1em;">${d.name}</div>
+      <div style="font-size:0.58rem;color:var(--muted);margin-top:0.15rem;">${d.element}</div>
+    </div>
+  `).join('');
+ 
+  const avoidHtml=DATA.filter(d=>s.avoid.includes(d.name)).map(d=>`
+    <div class="compat-tile" style="background:#fff1f2;border:1.5px solid rgba(244,63,94,0.2);">
+      <div style="font-size:1.8rem;margin-bottom:0.3rem;">${d.glyph}</div>
+      <div style="font-size:0.65rem;font-weight:600;color:#f43f5e;text-transform:uppercase;letter-spacing:0.1em;">${d.name}</div>
+      <div style="font-size:0.58rem;color:var(--muted);margin-top:0.15rem;">${d.element}</div>
+    </div>
+  `).join('');
+ 
+  const celestialData=[
+    ["Planeta regente",s.planet],["Elemento",s.element],["Modalidad",s.mode],
+    ["Casa astrológica",s.house],["Metal asociado",s.metal],["Piedra de poder",s.stone],
+    ["Día de la semana",s.day],["Color principal",s.color],
+    ["Números de la suerte",s.lucky.join(" · ")]
+  ];
+ 
+  const dataRowsHtml=celestialData.map(([k,v])=>`
+    <div class="data-row">
+      <span class="data-key">${k}</span>
+      <span class="data-val">${v}</span>
+    </div>
+  `).join('');
+ 
+  const svgChart=buildRadarSVG(s.stats,s.accentColor);
+ 
+  con.innerHTML=`
+    <div class="result-section">
+ 
+      <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:1rem;margin-bottom:2.5rem;">
+        <div>
+          <div class="section-label mb-2">Tu signo revelado</div>
+          <h2 class="section-title">Perfil astral de <span style="color:${s.accentColor};">${s.name}</span></h2>
+        </div>
+        <span class="badge" style="background:${ec.bg};color:${ec.text};border:1.5px solid ${ec.border};font-size:0.8rem;padding:0.45rem 1rem;">
+          ${s.element} · ${s.mode}
+        </span>
+      </div>
+ 
+      <div class="sign-hero-card mb-6" style="background:${s.gradient};">
+        <div id="p5-sign-bg"></div>
+        <div class="hero-card-content">
+          <div class="columns is-vcentered">
+            <div class="column is-narrow" style="text-align:center;padding-right:2rem;">
+              <span class="hero-glyph">${s.glyph}</span>
+            </div>
+            <div class="column">
+              <p class="hero-dates mb-2">${s.dates}</p>
+              <h3 class="hero-sign-name mb-3">${s.name}</h3>
+              <div style="display:flex;flex-wrap:wrap;gap:0.6rem;">
+                <span style="background:rgba(255,255,255,0.2);backdrop-filter:blur(8px);border:1px solid rgba(255,255,255,0.3);color:#fff;font-size:0.75rem;font-weight:600;padding:0.3rem 0.9rem;border-radius:999px;">⊛ ${s.planet}</span>
+                <span style="background:rgba(255,255,255,0.2);backdrop-filter:blur(8px);border:1px solid rgba(255,255,255,0.3);color:#fff;font-size:0.75rem;font-weight:600;padding:0.3rem 0.9rem;border-radius:999px;">Casa ${s.house}</span>
+                <span style="background:rgba(255,255,255,0.2);backdrop-filter:blur(8px);border:1px solid rgba(255,255,255,0.3);color:#fff;font-size:0.75rem;font-weight:600;padding:0.3rem 0.9rem;border-radius:999px;">${s.element}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+ 
+      <div class="columns is-multiline mb-6">
+        ${Object.entries(s.stats).slice(0,4).map(([k,v],i)=>`
+          <div class="column is-3-desktop is-6-tablet">
+            <div class="stat-card">
+              <div class="stat-number" style="color:${STAT_COLORS[i]};">${v}<span style="font-size:1rem;color:var(--muted);">/100</span></div>
+              <div class="stat-label-sm">${k}</div>
+            </div>
+          </div>
+        `).join('')}
+      </div>
+ 
+      <div class="columns is-desktop">
+ 
+        <div class="column is-7">
+ 
+          <div class="info-card mb-5">
+            <div class="info-card-accent" style="background:${s.gradient};"></div>
+            <div class="section-label mb-3">Perfil psíquico</div>
+            <p style="font-size:0.95rem;color:var(--ink3);line-height:1.8;">${s.description}</p>
+          </div>
+ 
+          <div class="info-card mb-5">
+            <div class="info-card-accent" style="background:linear-gradient(90deg,${s.accentColor},transparent);"></div>
+            <div class="section-label mb-4">Parámetros de personalidad</div>
+            <div style="display:flex;flex-wrap:wrap;gap:0.5rem;">${traitsHtml}</div>
+          </div>
+ 
+          <div class="info-card mb-5">
+            <div class="info-card-accent" style="background:linear-gradient(90deg,#6c47ff,#10b981);"></div>
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1.5rem;">
+              <div class="section-label">Mapa de energía</div>
+              <div style="width:80px;height:80px;">${svgChart}</div>
+            </div>
+            ${statsHtml}
+          </div>
+ 
+          <div class="info-card mb-5">
+            <div class="info-card-accent" style="background:linear-gradient(90deg,#a78bfa,#f472b6);"></div>
+            <div class="section-label mb-3">Mensaje del cosmos</div>
+            <div class="fortune-box">
+              <p class="fortune-text">${s.fortune}</p>
+            </div>
+          </div>
+ 
+        </div>
+ 
+        <div class="column is-5">
+ 
+          <div class="info-card mb-5">
+            <div class="info-card-accent" style="background:linear-gradient(90deg,#10b981,#3b82f6);"></div>
+            <div class="section-label mb-1">Alta compatibilidad</div>
+            <p style="font-size:0.78rem;color:var(--muted);margin-bottom:1.25rem;">Energías que resuenan con ${s.name}</p>
+            <div class="compat-grid mb-4">${compatHtml}</div>
+            <div style="height:1px;background:var(--border);margin:1rem 0;"></div>
+            <div class="section-label mb-1" style="color:#f43f5e;">Tensión energética</div>
+            <p style="font-size:0.78rem;color:var(--muted);margin-bottom:1.25rem;">Fricciones frecuentes con</p>
+            <div class="compat-grid">${avoidHtml}</div>
+          </div>
+ 
+          <div class="info-card mb-5">
+            <div class="info-card-accent" style="background:linear-gradient(90deg,#f59e0b,#ef4444);"></div>
+            <div class="section-label mb-3">Datos celestes</div>
+            ${dataRowsHtml}
+          </div>
+ 
+          <div class="info-card">
+            <div class="info-card-accent" style="background:linear-gradient(90deg,#6c47ff,#f43f5e);"></div>
+            <div style="display:flex;align-items:center;gap:0.6rem;margin-bottom:1rem;">
+              <div class="section-label">Pronóstico semanal</div>
+              <span class="badge" style="background:#f0fdf4;color:#15803d;border:1px solid rgba(34,197,94,0.25);font-size:0.68rem;">Esta semana</span>
+            </div>
+            <p style="font-size:0.9rem;color:var(--ink3);line-height:1.75;">${s.forecast}</p>
+ 
+            <div style="margin-top:1.25rem;">
+              <div class="prime-label mb-2">Intensidad energética</div>
+              <div style="display:flex;gap:4px;align-items:flex-end;height:50px;">
+                ${['L','M','X','J','V','S','D'].map((_,i)=>{
+                  const h=Math.floor(Math.random()*70)+30;
+                  return `<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:4px;">
+                    <div style="flex:1;width:100%;border-radius:3px;background:linear-gradient(180deg,${s.accentColor},${s.accentColor}55);min-height:${h}%;position:relative;"></div>
+                    <span style="font-size:0.58rem;color:var(--muted);font-weight:600;">${['L','M','X','J','V','S','D'][i]}</span>
+                  </div>`;
+                }).join('')}
+              </div>
+            </div>
+          </div>
+ 
+        </div>
+      </div>
+ 
+    </div>
+  `;
+ 
+  sec.style.display='block';
+ 
+  // Lanzar sketch p5 del recuadro del signo
+  setTimeout(()=>{
+    // Extraer RGB del accentColor del signo para pasárselo al sketch
+    const tmp = document.createElement('div');
+    tmp.style.color = s.accentColor;
+    document.body.appendChild(tmp);
+    const rgb = getComputedStyle(tmp).color.match(/\d+/g) || [255,255,255];
+    document.body.removeChild(tmp);
+    initSignCardSketch([parseInt(rgb[0]),parseInt(rgb[1]),parseInt(rgb[2])]);
+  }, 60);
+ 
+  setTimeout(()=>{
+    document.querySelectorAll('.prog-bar-fill').forEach(el=>{
+      el.style.width=el.dataset.val+'%';
+    });
+  },100);
+ 
+  setTimeout(()=>{
+    sec.scrollIntoView({behavior:'smooth',block:'start'});
+  },80);
+ 
+  observeReveals();
+}
+ 
+function buildRadarSVG(stats,accent){
+  const vals=Object.values(stats);
+  const n=vals.length;
+  const cx=40,cy=40,r=30;
+  const points=vals.map((v,i)=>{
+    const angle=(i/n)*Math.PI*2-Math.PI/2;
+    const scale=v/100;
+    return [cx+Math.cos(angle)*r*scale,cy+Math.sin(angle)*r*scale];
+  });
+  const poly=points.map(p=>p.join(',')).join(' ');
+  const rings=[0.33,0.66,1].map(s=>{
+    const rpts=Array.from({length:n},(_,i)=>{
+      const a=(i/n)*Math.PI*2-Math.PI/2;
+      return [cx+Math.cos(a)*r*s,cy+Math.sin(a)*r*s];
+    });
+    return `<polygon points="${rpts.map(p=>p.join(',')).join(' ')}" fill="none" stroke="${accent}22" stroke-width="0.8"/>`;
+  }).join('');
+ 
+  return `<svg viewBox="0 0 80 80" xmlns="http://www.w3.org/2000/svg">
+    ${rings}
+    <polygon points="${poly}" fill="${accent}33" stroke="${accent}" stroke-width="1.5" stroke-linejoin="round"/>
+    ${points.map(p=>`<circle cx="${p[0]}" cy="${p[1]}" r="2" fill="${accent}"/>`).join('')}
+  </svg>`;
+}
+ 
+function observeReveals(){
+  const els=document.querySelectorAll('.reveal');
+  const obs=new IntersectionObserver(entries=>{
+    entries.forEach(e=>{if(e.isIntersecting){e.target.classList.add('visible');}});
+  },{threshold:0.1});
+  els.forEach(el=>obs.observe(el));
+  els.forEach(el=>{
+    const r=el.getBoundingClientRect();
+    if(r.top<window.innerHeight)el.classList.add('visible');
+  });
+}
+ 
+document.addEventListener('DOMContentLoaded',observeReveals);
+window.addEventListener('scroll',observeReveals,{passive:true});
+ 
+document.getElementById('birthdate').addEventListener('keydown',e=>{
+  if(e.key==='Enter')revelar();
+});
+ 
+observeReveals();
+</script>
+</body>
+</html>
